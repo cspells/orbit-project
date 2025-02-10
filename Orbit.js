@@ -227,7 +227,7 @@ export function computeGroundTrack(OrbitalElementsIn, startTime=0)
     const P = computePeriod(OrbitalElementsIn);
     
     var initialThetaRadians = deg2rad(OrbitalElementsIn.TrueAnomaly)
-    for (var percentOrbit = 0; percentOrbit <= 30.0; percentOrbit += 1)
+    for (var percentOrbit = 0; percentOrbit <= 30.0; percentOrbit += 0.1)
     {
         var elapsedTime = -P*percentOrbit/100.0; // + startTime;
         const thetaRadians = propagate(OrbitalElementsIn, elapsedTime, initialThetaRadians)

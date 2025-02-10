@@ -10,34 +10,25 @@ import { matrix, multiply, abs, divide } from 'mathjs';
 import * as d3 from 'd3';
 import { COE2IJK, computeGroundTrack, OrbitalElements, propagate, rad2deg } from './Orbit';
 import Stats from 'stats.js';
+import * as constants from './Constants';
 // import gui from './gui.jsx'; // Ensure this path is correct
 
 var stats = new Stats();
 stats.showPanel( 1 ); // 0: fps, 1: ms, 2: mb, 3+: custom
 document.body.appendChild( stats.dom );
 
-const PROJECTION_AR = 2; // Aspect ratio (width / height) of chosen projection (equirectangular)
-const CANVAS_WIDTH = 1.5*1.5*1080; //4096; // Maximum width allowed for canvas elements on mobile
-const CANVAS_HEIGHT = CANVAS_WIDTH / PROJECTION_AR; // Canvas height from maximum width and projection aspect ratio
-
-const TWO_PI = (2 * Math.PI);
-// Gravitational Parameter of earth 
-const mue = 3.986004418e14;
-const EARTH_ROTATION_PERIOD = 23*3600+56*60+4.1;
-const EARTH_ROTATION_RATE = TWO_PI / EARTH_ROTATION_PERIOD;
+const SCALE = 4;
 
 const eps = 0.0001;
 var simulationTime = 0.0;
 var deltaTime = 5.0;
 
-
 const PROJECTION = d3
   .geoEquirectangular()
-  .translate([CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2])
+  .translate([constants.CANVAS_WIDTH * SCALE / 2, constants.CANVAS_HEIGHT * SCALE / 2])
   .scale(
-    Math.min(CANVAS_WIDTH / PROJECTION_AR / Math.PI, CANVAS_HEIGHT / Math.PI)
+    Math.min(constants.CANVAS_WIDTH  * SCALE / constants.PROJECTION_AR / Math.PI, constants.CANVAS_HEIGHT  * SCALE / Math.PI)
   ); // D3 geo projection for canvas
-
 
 
 const scene = new THREE.Scene();
@@ -83,14 +74,13 @@ var uniforms = {
   }
 }
 
-
 // Append canvas and save reference
 const groundPlotCanvas = d3
   .select("body")
   .append("canvas")
   .attr("background", "#ff0000")
-  .attr("width", CANVAS_WIDTH)  //CANVAS_WIDTH
-  .attr("height", CANVAS_HEIGHT); //CANVAS_HEIGHT
+  .attr("width", constants.CANVAS_WIDTH * SCALE)  
+  .attr("height", constants.CANVAS_HEIGHT * SCALE); 
 
 // Get 2d context of canvas
 const context = groundPlotCanvas.node().getContext("2d");
@@ -103,39 +93,14 @@ const path = d3
 
 // Draw features from geojson
 context.strokeStyle = "#ff0000";
-context.lineWidth = 2.0; //3.25;
+context.lineWidth = 5.0; //3.25;
 context.beginPath();
-
-
-// path({
-//   type: 'Feature',
-//   geometry: {
-//     type: 'LineString',
-//     coordinates: [[0.1278, 51.5074], [-74.0059, 40.7128], [-120, 10], [0.1278, 51.5074]]
-//   }
-// });
-// context.fill();
-// context.stroke();
-// context.closePath()
-
-// countries.forEach(function (d) {
-//   context.beginPath();
-//   path(d);
-//   context.fill();
-//   context.stroke();      
-// });
-// context.closePath() 
-
-// var graticle = d3.geoGraticule();
-// context.beginPath();
-// path(graticle());
-// context.fill();
-// context.stroke(); 
-// context.closePath()  
 
 // Generate texture from canvas
 const texture = new THREE.CanvasTexture(groundPlotCanvas.node()); 
- // new THREE.CanvasTexture(groundPlotCanvas); //
+// Resize the texture by a division of SCALE
+// texture.repeat.set(1 / SCALE, 1 / SCALE);
+texture.anisotropy = 16;
 texture.needsUpdate = true;
 
 // Remove canvas
@@ -167,7 +132,7 @@ context.closePath()
 // groundPlotCanvas.selectAll("Path.Feature").remove()
 console.log(d3.select("path.Feature").remove())
 
-context.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+context.clearRect(0, 0, constants.CANVAS_WIDTH*SCALE, constants.CANVAS_HEIGHT*SCALE);
 
 // console.log(groundPlotCanvas.selectAll("path"))
 // context.selectAll("path").remove()
@@ -408,7 +373,7 @@ function updateOrbit(OrbitalElements, time=0)
   const gpts = computeGroundTrack(OrbitalElements, time)
   // console.log(JSON.stringify(gpts))
 
-  context.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+  context.clearRect(0, 0, constants.CANVAS_WIDTH * SCALE, constants.CANVAS_HEIGHT * SCALE);
   context.beginPath()
   path({
     type: 'Feature',
@@ -430,8 +395,6 @@ function updateSimulationTime()
 {
   simulationTime += deltaTime
 }
-
-
 
 const initialTime = new Date();
 console.log(initialTime)
@@ -464,23 +427,8 @@ function render(time) {
   
   var sunAngle = new THREE.Vector3(1.0, -0.25, 0.0);
 
-  const earthRotation = (EARTH_ROTATION_RATE * simulationTime);
-  const nearestTwoPi = earthRotation % TWO_PI
-
-  // context.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-  // context.beginPath()
-  // path({
-  //   type: 'Feature',
-  //   geometry: {
-  //     type: 'LineString',
-  //     coordinates: [[0-simulationTime/200, 0], [0-simulationTime/200, 40], [40-simulationTime/250, 0]]
-  //   }
-  // });
-  // context.fill();
-  // context.stroke();
-  // context.closePath()
-  
-  // texture.needsUpdate = true;
+  const earthRotation = (constants.EARTH_ROTATION_RATE * simulationTime);
+  const nearestTwoPi = earthRotation % constants.TWO_PI
 
   switch (viewState) {
     case viewStates.GLOBE:
