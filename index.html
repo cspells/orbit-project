@@ -14,78 +14,9 @@
 <body>
   <div id="app"></div>
 
-  <div className="fixed h-screen">
+  <div className="fixed h-screen"> 
     <canvas id="c">
-
-
-    </canvas>
-
-    <div >
-      <div class="slidecontainer " onmouseout="isMouseOutSlider()"
-        onmouseover="isMouseOverSlider()">
-        <div class="tab">
-          <button class="tablinks" onclick="openTab(event, 'classicalOrbitalElements')">
-            Classical Orbital Elements
-          </button>
-          <button class="tablinks" onclick="openTab(event, 'Paris')">Paris</button>
-          <button class="tablinks" onclick="openTab(event, 'Tokyo')">Tokyo</button>
-        </div>
-        <div id="classicalOrbitalElements" class="tabcontent columns-2">
-          <div class="flex">
-            <div>
-              <div class="cWrap flex">
-                <div class="sliderTitle">Semi-Major Axis: </div>
-                <!-- <div class="cVal" id="semiMajorAxisValue">0</div> -->
-                <input class="cVal" id="semiMajorAxisValue" value="0" type="number" name="Name" step=100.0>
-                <div class="units"> km</div>
-              </div>
-              <div class="cWrap flex">
-                <div class="sliderTitle">Eccentricity: </div>
-                <div class="cVal" id="eccentricityValue">0</div>
-              </div>
-              <div class="cWrap flex">
-                <div class="sliderTitle">Inclination: </div>
-                <div class="cVal" id="inclinationValue">0</div>
-                <div class="units">º</div>
-              </div>
-              <div class="cWrap flex">
-                <div class="sliderTitle">RAAN: </div>
-                <div class="cVal" id="raanValue">0</div>
-                <div class="units">º</div>
-              </div>
-              <div class="cWrap flex">
-                <div class="sliderTitle">Argument of Perigee: </div>
-                <div class="cVal" id="argumentPerigeeValue">0</div>
-                <div class="units">º</div>
-              </div>
-              <div class="cWrap flex">
-                <div class="sliderTitle">True Anomaly: </div>
-                <div class="cVal" id="trueAnomalyValue">0</div>
-                <div class="units">º</div>
-              </div>
-
-            </div>
-
-            <div>
-              <input type="range" min="5200" max="100000" value="26312" class="slider" id="semiMajorAxis"
-                oninput="document.getElementById('semiMajorAxisValue').innerHTML=this.value">
-              <input type="range" step=0.01 min="0" max="1" value="0.75" class="slider" id="eccentricity"
-                oninput="document.getElementById('eccentricityValue').innerHTML=this.value">
-              <input type="range" min="0" max="180" value="45" class="slider" id="inclination"
-                oninput="document.getElementById('inclinationValue').innerHTML=this.value">
-              <input type="range" min="0" max="360" value="225" class="slider" id="RAAN"
-                oninput="document.getElementById('raanValue').innerHTML=this.value">
-              <input type="range" min="0" max="360" value="225" class="slider" id="argumentPerigee"
-                oninput="document.getElementById('argumentPerigeeValue').innerHTML=this.value">
-              <input type="range" min="0" max="360" value="129" class="slider" id="trueAnomaly"
-                oninput="document.getElementById('trueAnomalyValue').innerHTML=this.value">
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <button class="text-white" type="button" onclick="transform()">Change View</button>
+     </canvas>
 
     <div id="map">
       <script type="module" src="/main.js"></script>
@@ -106,29 +37,29 @@
   <script>
     var mouseOverSlider = false;
     var rotation = 0;
-    const viewStates = {
-      GLOBE: 'Globe',
-      TRANSITION_TO_ORTHO: 'Transition to ortho',
-      ORTHO: 'Otho',
-      TRANSITION_TO_GLOBE: 'Transition to globe',
-      WAIT: 'Wait for animation'
-    }
+    // const viewStates = {
+    //   GLOBE: 'Globe',
+    //   TRANSITION_TO_ORTHO: 'Transition to ortho',
+    //   ORTHO: 'Otho',
+    //   TRANSITION_TO_GLOBE: 'Transition to globe',
+    //   WAIT: 'Wait for animation'
+    // }
 
-    // Initially the view will start by looking at the globe
-    var viewState = viewStates.GLOBE;
+    // // Initially the view will start by looking at the globe
+    // var viewState = viewStates.GLOBE;
 
-    function transform() {
+    // function transform() {
 
-      switch (viewState) {
-        case viewStates.GLOBE:
-          viewState = viewStates.TRANSITION_TO_ORTHO;
-          break;
-        case viewStates.ORTHO:
-          viewState = viewStates.TRANSITION_TO_GLOBE;
-          break;
-      }
-      console.log(viewState)
-    }
+    //   switch (viewState) {
+    //     case viewStates.GLOBE:
+    //       viewState = viewStates.TRANSITION_TO_ORTHO;
+    //       break;
+    //     case viewStates.ORTHO:
+    //       viewState = viewStates.TRANSITION_TO_GLOBE;
+    //       break;
+    //   }
+    //   console.log(viewState)
+    // }
 
     function isMouseOverSlider() {
       mouseOverSlider = true;

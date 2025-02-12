@@ -209,9 +209,9 @@ export function propagate(OrbitalElementsIn, deltaTime, thetaRadians)
 
     E = NewtonMethod(M,f,df,1e-4,10);
 
-    // console.log(f(E))
-    // console.log("M:", rad2deg(M))
-    // console.log("E:", rad2deg(E))
+    console.log(f(E))
+    console.log("M:", rad2deg(M))
+    console.log("E:", rad2deg(E))
 
     // Find new theta
     const Theta2 = 2 * Math.atan( Math.sqrt( (1 + e) / (1 - e) ) * Math.tan( E / 2 ));
@@ -231,8 +231,8 @@ export function computeGroundTrack(OrbitalElementsIn, startTime=0)
     {
         var elapsedTime = -P*percentOrbit/100.0; // + startTime;
         const thetaRadians = propagate(OrbitalElementsIn, elapsedTime, initialThetaRadians)
-        // console.log("Initial Theta:", rad2deg(initialThetaRadians))
-        // console.log("Elapsed Time:", elapsedTime, "Theta:", rad2deg(thetaRadians))
+        console.log("Initial Theta:", rad2deg(initialThetaRadians))
+        console.log("Elapsed Time:", elapsedTime, "Theta:", rad2deg(thetaRadians))
         var RIJK = COE2IJK(OrbitalElementsIn, false, thetaRadians)
         var Long = Math.atan2( RIJK.y, RIJK.x ) - (GWOff + EARTH_ROTATION_RATE * (elapsedTime + startTime));
         var Lat = Math.asin( RIJK.z / RIJK.length() );
