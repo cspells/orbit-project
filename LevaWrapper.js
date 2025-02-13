@@ -3,6 +3,7 @@ import React from 'react'
 import ReactDOM from 'react-dom'
 import { Leva, useControls } from 'leva'
 
+
 function LevaPanel(props) {
   const values = useControls(props.config)
   
@@ -10,7 +11,15 @@ function LevaPanel(props) {
     props.onChange?.(values)
   }, [values, props.onChange])
 
-  return React.createElement(Leva)
+  return React.createElement(Leva, {
+    collapsed: true,  // Start collapsed
+    theme: {
+      sizes: {
+        rootWidth: '420px',    // Increase overall panel width
+        numberInputMinWidth: '60px'  // Increase control width
+      }
+    }
+  })
 }
 
 export function createLevaControls(config, onChange) {

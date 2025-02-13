@@ -1,5 +1,5 @@
 export const PROJECTION_AR = 2;
-export const CANVAS_WIDTH = 1.5 * 1.5 * 1080;
+export const CANVAS_WIDTH = 4 * 1.5 * 1.5 * 1080;
 export const CANVAS_HEIGHT = CANVAS_WIDTH / PROJECTION_AR;
 
 export const TWO_PI = 2 * Math.PI;

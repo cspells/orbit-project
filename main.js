@@ -25,7 +25,8 @@ var stats = new Stats();
 stats.showPanel(1); // 0: fps, 1: ms, 2: mb, 3+: custom
 document.body.appendChild(stats.dom);
 
-const SCALE = 4;
+const SCALE = 1;
+const initialColor = 0x59ff00;
 
 const eps = 0.0001;
 var simulationTime = 0.0;
@@ -67,13 +68,13 @@ function transform() {
 const PROJECTION = d3
   .geoEquirectangular()
   .translate([
-    (constants.CANVAS_WIDTH * SCALE) / 2,
-    (constants.CANVAS_HEIGHT * SCALE) / 2,
+    constants.CANVAS_WIDTH / 2,
+    constants.CANVAS_HEIGHT / 2,
   ])
   .scale(
     Math.min(
-      (constants.CANVAS_WIDTH * SCALE) / constants.PROJECTION_AR / Math.PI,
-      (constants.CANVAS_HEIGHT * SCALE) / Math.PI
+      constants.CANVAS_WIDTH / constants.PROJECTION_AR / Math.PI,
+      constants.CANVAS_HEIGHT / Math.PI
     )
   ); // D3 geo projection for canvas
 
@@ -127,8 +128,8 @@ const groundPlotCanvas = d3
   .select("body")
   .append("canvas")
   .attr("background", "#ff0000")
-  .attr("width", constants.CANVAS_WIDTH * SCALE)
-  .attr("height", constants.CANVAS_HEIGHT * SCALE);
+  .attr("width", constants.CANVAS_WIDTH )
+  .attr("height", constants.CANVAS_HEIGHT );
 
 // Get 2d context of canvas
 const context = groundPlotCanvas.node().getContext("2d");
@@ -137,8 +138,8 @@ const context = groundPlotCanvas.node().getContext("2d");
 const path = d3.geoPath().projection(PROJECTION).context(context);
 
 // Draw features from geojson
-context.strokeStyle = "#ff0000";
-context.lineWidth = 5.0; //3.25;
+context.strokeStyle = "#59ff00";
+context.lineWidth = 3.0; //3.25;
 context.beginPath();
 
 // Generate texture from canvas
@@ -172,8 +173,8 @@ console.log(d3.select("path.Feature").remove());
 context.clearRect(
   0,
   0,
-  constants.CANVAS_WIDTH * SCALE,
-  constants.CANVAS_HEIGHT * SCALE
+  constants.CANVAS_WIDTH,
+  constants.CANVAS_HEIGHT  
 );
 texture.needsUpdate = true;
 
@@ -273,7 +274,7 @@ const positions = new Float32Array(maxPoints * 3); // * 3 for x, y, z
 orbitGeometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
 
 const orbitMaterial = new THREE.LineBasicMaterial({
-  color: 0xff0099,
+  color:  initialColor,
   linewidth: 20,
   transparent: true,
   opacity: 1.0,
@@ -293,7 +294,7 @@ nadirColors.push(0.2, 0.2, 0.2);
 nadirGeometry.setPositions(nadirPositions);
 nadirGeometry.setColors(nadirColors);
 const nadirMaterial = new LineMaterial({
-  color: 0xff0099,
+  color:  initialColor,
   linewidth: 1.0,
   vertexColors: true,
   transparent: true,
@@ -307,7 +308,7 @@ initialShape.moveTo(0, 0);
 initialShape.bezierCurveTo(1, 1, 1, 0, 0, 0); // Tiny initial shape
 const orbitPlaneGeometry = new THREE.ShapeGeometry(initialShape, 200);
 const orbitPlaneMaterial = new THREE.MeshBasicMaterial({
-  color: 0x00ff00,
+  color:  initialColor,
   opacity: 0.08,
   transparent: true,
   side: THREE.DoubleSide,
@@ -414,8 +415,8 @@ function updateOrbit(OrbitalElements, time = 0) {
   context.clearRect(
     0,
     0,
-    constants.CANVAS_WIDTH * SCALE,
-    constants.CANVAS_HEIGHT * SCALE
+    constants.CANVAS_WIDTH,
+    constants.CANVAS_HEIGHT  
   );
   context.beginPath();
   path({
@@ -446,16 +447,15 @@ const cleanup = createLevaControls(
         RAAN: { value: OrbitalElements.RAAN, min: 0, max: 360 },
         ArgumentPerigee: { value: OrbitalElements.ArgumentPerigee, min: 0, max: 360 },
         TrueAnomaly: { value: OrbitalElements.TrueAnomaly, min: 0, max: 360 },
-        // satelliteColor: { value: '#ff0000' }
       },
       { collapsed: true }
     ), // This makes it collapsed by default
     Visualization: folder(
       {
         // Define your controls here
-        GroundTrackLineColor: { value: "#ff0000" },
-        OrbitLineColor: { value: "#ff0000" },
-        OrbitPlaneColor: { value: "#00ff00" },
+        GroundTrackLineColor: { value: "#59ff00" },
+        OrbitLineColor: { value: "#59ff00" },
+        OrbitPlaneColor: { value: "#59ff00" },
       },
       { collapsed: true }
     ), // This makes it collapsed by default
@@ -493,6 +493,8 @@ const cleanup = createLevaControls(
     }
 
     updateOrbit(OrbitalElements, simulationTime);
+
+    values.TrueAnomaly = OrbitalElements.TrueAnomaly;
   }
 );
 
@@ -504,23 +506,11 @@ const initialTime = new Date();
 console.log(initialTime);
 var newRotation = null;
 function render(time) {
-  // var result = JSON.parse(document.querySelector('#gui_container').innerHTML);
-  // console.log(result)
 
   stats.begin();
   const timeNow = new Date();
   time = (timeNow.getTime() - initialTime.getTime()) / 1000.0;
 
-  // if (true === mouseOverSlider) {
-  //   // OrbitalElements.SemiMajorAxis   = parseFloat(semiMajorAxis.value)
-  //   // OrbitalElements.Eccentricity    = parseFloat(eccentricity.value)
-  //   // OrbitalElements.Inclination     = parseFloat(inclination.value)
-  //   // OrbitalElements.RAAN            = parseFloat(RAAN.value)
-  //   // OrbitalElements.ArgumentPerigee = parseFloat(argumentPerigee.value)
-  //   // OrbitalElements.TrueAnomaly     = parseFloat(trueAnomaly.value)
-
-  //   updateOrbit(OrbitalElements, simulationTime)
-  // }
   updateOrbit(OrbitalElements, simulationTime);
 
   if (resizeRendererToDisplaySize(renderer)) {
@@ -533,9 +523,7 @@ function render(time) {
 
   const earthRotation = constants.EARTH_ROTATION_RATE * simulationTime;
   const nearestTwoPi = earthRotation % constants.TWO_PI;
-
-  
-
+ 
   switch (viewState) {
     case viewStates.GLOBE:
       // Only update simulation time in Orth and Globe view and not
@@ -545,7 +533,6 @@ function render(time) {
       // Rotate the earth
       earth.rotation.y = earthRotation;
 
-      
       // Add controls for rotation and zoom,
       // use GSAP to make smooth interpolation
       gsap.to(group.rotation, {
@@ -558,8 +545,6 @@ function render(time) {
         duration: 1.5,
       });
 
-      
-    
       break;
 
     case viewStates.TRANSITION_TO_ORTHO:
@@ -608,7 +593,6 @@ function render(time) {
         duration: 1.5,
       });
     
-
       satellite.visible = false;
       orbitLine.visible = false;
       orbitPlane.visible = false;
