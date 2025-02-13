@@ -1,12 +1,10 @@
 import gsap from "gsap";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
-import { useControls } from "leva";
 import vertexShader from "./shaders/earthVertex.glsl";
 import fragmentShader from "./shaders/earthFragment.glsl";
 import atmosphereVertexShader from "./shaders/atmosphereVertex.glsl";
 import atmosphereFragmentShader from "./shaders/atmosphereFragment.glsl";
-import { matrix, multiply, abs, divide } from "mathjs";
 import * as d3 from "d3";
 import {
   COE2IJK,
@@ -22,7 +20,6 @@ import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
 import { LineGeometry } from "three/examples/jsm/lines/LineGeometry.js";
 import { createLevaControls } from "./LevaWrapper";
 import { folder } from "leva";
-// import gui from './gui.jsx'; // Ensure this path is correct
 
 var stats = new Stats();
 stats.showPanel(1); // 0: fps, 1: ms, 2: mb, 3+: custom
@@ -291,8 +288,8 @@ const nadirPositions = [];
 const nadirColors = [];
 nadirPositions.push(10, 0, 0);
 nadirPositions.push(0, 10, 0);
-nadirColors.push(1, 0, 1);
-nadirColors.push(1, 0, 0);
+nadirColors.push(1, 1, 1);
+nadirColors.push(0.2, 0.2, 0.2);
 nadirGeometry.setPositions(nadirPositions);
 nadirGeometry.setColors(nadirColors);
 const nadirMaterial = new LineMaterial({
@@ -341,7 +338,6 @@ scene.add(ambientLight);
 
 const light = new THREE.PointLight(color, intensity);
 light.position.set(0, 0, 50);
-// light.target.position.set(0, 0, 0);
 scene.add(light);
 
 const satellite = new THREE.Group();
@@ -457,8 +453,9 @@ const cleanup = createLevaControls(
     Visualization: folder(
       {
         // Define your controls here
-
-        satelliteColor: { value: "#ff0000" },
+        GroundTrackLineColor: { value: "#ff0000" },
+        OrbitLineColor: { value: "#ff0000" },
+        OrbitPlaneColor: { value: "#00ff00" },
       },
       { collapsed: true }
     ), // This makes it collapsed by default
@@ -474,6 +471,11 @@ const cleanup = createLevaControls(
     // For example:
     // satellite.position.x = values.orbitRadius
     // satellite.material.color.set(values.satelliteColor)
+    orbitPlane.material.color.set(values.OrbitPlaneColor)
+    orbitLine.material.color.set(values.OrbitLineColor)
+    nadirLine.material.color.set(values.GroundTrackLineColor)
+
+    context.strokeStyle = values.GroundTrackLineColor;
 
     OrbitalElements.SemiMajorAxis = values.SemiMajorAxis;
     OrbitalElements.Eccentricity = values.Eccentricity;
