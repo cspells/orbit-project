@@ -28,6 +28,8 @@ document.body.appendChild(stats.dom);
 const SCALE = 1;
 const initialColor = 0x59ff00;
 
+const EARTH_SCALED_RADIUS = 6.3781;
+
 const eps = 0.0001;
 var simulationTime = 0.0;
 var deltaTime = 5.0;
@@ -93,7 +95,57 @@ const near = 1.0;
 const far = 20000;
 const camera = new THREE.PerspectiveCamera(fov, aspect, near, far);
 
+const fovy = camera.fov * Math.PI/180;  // converting from degrees to radians
+const fovx = 2 * Math.atan(Math.tan(fovy/2) * camera.aspect);
+
+console.log("Field of view x", fovx * 180 / Math.PI);
+console.log("Field of view y", fovy * 180 / Math.PI); 
+
 camera.position.z = 20;
+
+const mouse = {
+  x: 0,
+  y: 0,
+  scroll: camera.position.z,
+};
+
+// Given your map dimensions from earlier:
+const mapWidth = 2 * Math.PI * EARTH_SCALED_RADIUS;  // Total width (x)
+const mapHeight = Math.PI * EARTH_SCALED_RADIUS;     // Total height (y)
+
+function getVisibleDimensions(zDistance) {
+    const zDistance2 = zDistance - EARTH_SCALED_RADIUS;
+    // At any z distance, visible width = 2 * z * tan(fovx/2)
+    const visibleWidth = 2 * zDistance2 * Math.tan(fovx/2);
+    const visibleHeight = 2 * zDistance2 * Math.tan(fovy/2);
+    return { visibleWidth, visibleHeight };
+}
+
+// Maximum x offset at a given z (to keep map edges at view boundaries)
+function getMaxXOffset(zDistance) {
+    const { visibleWidth } = getVisibleDimensions(zDistance);
+    return Math.max(0, mapWidth/2 - visibleWidth/2);
+}
+
+// Maximum y offset at a given z
+function getMaxYOffset(zDistance) {
+    const { visibleHeight } = getVisibleDimensions(zDistance);
+    return Math.max(0, mapHeight/2 - visibleHeight/2);
+}
+
+// Minimum z distance where entire height becomes visible
+const maxZForFullHeight = mapHeight / (2 * Math.tan(fovy/2)) + EARTH_SCALED_RADIUS;
+
+console.log("Max z for full height", maxZForFullHeight);
+
+
+
+function limitOrthoMouse() {
+  const x_limit = getMaxXOffset(mouse.scroll) + 0.1;
+  const y_limit = getMaxYOffset(mouse.scroll) + 0.1;
+  mouse.x = Math.max(Math.min(mouse.x, x_limit), -x_limit);
+  mouse.y = Math.max(Math.min(mouse.y, y_limit), -y_limit);
+}
 
 var uniforms = {
   dayTexture: {
@@ -104,6 +156,11 @@ var uniforms = {
   nightTexture: {
     value: new THREE.TextureLoader().load(
       "./img/earth_vir_2016_lrg.avif" //world.topo.bathy.night.3x1920x960.jpg"
+    ),
+  },
+  cloudTexture: {
+    value: new THREE.TextureLoader().load(
+      "./img/clouds_8k.png" // "./img/cloud_combined_2048.jpg" //earth_clouds_2048.jpg"
     ),
   },
   mapTexture: {
@@ -120,6 +177,9 @@ var uniforms = {
   },
   flatten: {
     value: 0.0,
+  },
+  EARTH_SCALED_RADIUS: {
+    value: EARTH_SCALED_RADIUS,
   },
 };
 
@@ -230,7 +290,7 @@ const stars = new THREE.Points(starGeometry, starMaterial);
 
 const earth = new THREE.Mesh(
   new THREE.SphereGeometry(
-    6.3781,
+    EARTH_SCALED_RADIUS,
     150,
     150,
     0,
@@ -362,11 +422,7 @@ gltfLoader.load(
 
 renderer.render(scene, camera);
 
-const mouse = {
-  x: 0,
-  y: 0,
-  scroll: camera.position.z,
-};
+
 
 var isDragging = false;
 var c = 0;
@@ -436,7 +492,7 @@ function updateOrbit(OrbitalElements, time = 0) {
 updateOrbit(OrbitalElements);
 
 // Create the GUI with your controls
-const cleanup = createLevaControls(
+const {cleanup, set} = createLevaControls(
   {
     Controls: folder(
       {
@@ -446,7 +502,7 @@ const cleanup = createLevaControls(
         Inclination: { value: OrbitalElements.Inclination, min: 0, max: 180 },
         RAAN: { value: OrbitalElements.RAAN, min: 0, max: 360 },
         ArgumentPerigee: { value: OrbitalElements.ArgumentPerigee, min: 0, max: 360 },
-        TrueAnomaly: { value: OrbitalElements.TrueAnomaly, min: 0, max: 360 },
+        TrueAnomaly: { value: OrbitalElements.TrueAnomaly, min: -180, max: 180 },
       },
       { collapsed: true }
     ), // This makes it collapsed by default
@@ -482,7 +538,7 @@ const cleanup = createLevaControls(
     OrbitalElements.Inclination = values.Inclination;
     OrbitalElements.RAAN = values.RAAN;
     OrbitalElements.ArgumentPerigee = values.ArgumentPerigee;
-    // OrbitalElements.TrueAnomaly     = parseFloat(trueAnomaly.value)
+    // OrbitalElements.TrueAnomaly     = values.TrueAnomaly;
 
     if (values.View === 'Orthographic' && viewState === viewStates.GLOBE) {
       transform();
@@ -494,7 +550,6 @@ const cleanup = createLevaControls(
 
     updateOrbit(OrbitalElements, simulationTime);
 
-    values.TrueAnomaly = OrbitalElements.TrueAnomaly;
   }
 );
 
@@ -512,6 +567,8 @@ function render(time) {
   time = (timeNow.getTime() - initialTime.getTime()) / 1000.0;
 
   updateOrbit(OrbitalElements, simulationTime);
+
+  set({TrueAnomaly: OrbitalElements.TrueAnomaly});
 
   if (resizeRendererToDisplaySize(renderer)) {
     const canvas = renderer.domElement;
@@ -555,7 +612,7 @@ function render(time) {
       .to(camera.position, {
         y: 0,
         x: 0,
-        z: 16,
+        z: mouse.scroll,
         duration: 1.5,
       });
       gsap
@@ -586,10 +643,17 @@ function render(time) {
       // in transition states
       updateSimulationTime();
 
+      // Limit x and y position of camera to prevent scrolling past the flattened map
+      // The limits will be a function of the cameras z position and the field of view
+      // mouse.scroll = Math.max(EARTH_SCALED_RADIUS, math.min(mouse.scroll, maxZForFullHeight));
+
+
+      
+
       gsap.to(camera.position, {
-        x: -3 * mouse.x,
-        y: 3 * mouse.y,
-        z: 16,
+        x: mouse.x,
+        y: mouse.y,
+        z: mouse.scroll, // 16
         duration: 1.5,
       });
     
@@ -727,11 +791,19 @@ addEventListener("mousemove", (event) => {
       y: yPosition - previousMousePosition.y,
     };
     if (true === isDragging) {
-      mouse.x += deltaMove.x * 2;
-      mouse.y += deltaMove.y * 2;
-      mouse.y = Math.max(mouse.y, -Math.PI / 2);
-      mouse.y = Math.min(mouse.y, Math.PI / 2);
+
+      if (viewState === viewStates.GLOBE) {
+        mouse.x += deltaMove.x * 2;
+        mouse.y += deltaMove.y * 2;
+        mouse.y = Math.max(mouse.y, -Math.PI / 2);
+        mouse.y = Math.min(mouse.y, Math.PI / 2);
+      } else if (viewState === viewStates.ORTHO) {
+        mouse.x -= deltaMove.x * 8;
+        mouse.y += deltaMove.y * 8;
+        limitOrthoMouse();
+      }
     }
+
     previousMousePosition = {
       x: xPosition,
       y: yPosition,
@@ -741,8 +813,12 @@ addEventListener("mousemove", (event) => {
 
 addEventListener("wheel", (event) => {
   mouse.scroll += event.deltaY / 25;
-  mouse.scroll = Math.max(12.0, mouse.scroll);
+  mouse.scroll = Math.max(EARTH_SCALED_RADIUS * 1.25, mouse.scroll);
   mouse.scroll = Math.min(200.0, mouse.scroll);
+  if (viewState === viewStates.ORTHO || viewState === viewStates.TRANSITION_TO_ORTHO) {
+    mouse.scroll = Math.min(maxZForFullHeight, mouse.scroll);
+    limitOrthoMouse();
+  }
 });
 
 function animate() {

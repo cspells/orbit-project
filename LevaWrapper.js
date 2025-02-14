@@ -5,7 +5,19 @@ import { Leva, useControls } from 'leva'
 
 
 function LevaPanel(props) {
-  const values = useControls(props.config)
+    // Destructure to get both values and set function
+    const [values, set] = useControls(() => props.config)
+  
+    React.useEffect(() => {
+      props.onChange?.(values)
+    }, [values, props.onChange])
+  
+    // Pass the set function back through props
+    React.useEffect(() => {
+      if (props.onMount) {
+        props.onMount(set)
+      }
+    }, [])
   
   React.useEffect(() => {
     props.onChange?.(values)
@@ -25,18 +37,30 @@ function LevaPanel(props) {
 export function createLevaControls(config, onChange) {
   const container = document.createElement('div')
   document.body.appendChild(container)
+  
+  let setValues = null
 
-  // Using createElement instead of JSX
   ReactDOM.render(
     React.createElement(LevaPanel, {
       config: config,
-      onChange: onChange
+      onChange: onChange,
+      onMount: (set) => {
+        setValues = set
+      }
     }),
     container
   )
 
-  return () => {
-    ReactDOM.unmountComponentAtNode(container)
-    container.remove()
+  // Return both cleanup and setter function
+  return {
+    cleanup: () => {
+      ReactDOM.unmountComponentAtNode(container)
+      container.remove()
+    },
+    set: (values) => {
+      if (setValues) {
+        setValues(values)
+      }
+    }
   }
 }
