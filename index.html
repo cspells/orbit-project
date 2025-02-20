@@ -12,6 +12,20 @@
 </head>
 
 <body>
+
+  <div id="loading-screen" class="loading-overlay">
+    <div class="loading-container">
+      <h2>Loading Assets</h2>
+      <div class="progress-bar">
+        <div class="progress-fill"></div>
+      </div>
+      <div class="loading-status">
+        <p id="loading-text">Initializing...</p>
+        <p id="progress-text">0% Complete</p>
+      </div>
+    </div>
+  </div>
+  
   <div id="app"></div>
 
   <div className="fixed h-screen"> 
@@ -19,7 +33,7 @@
      </canvas>
 
     <div id="map">
-      <script type="module" src="/main.js"></script>
+      <script type="module" src="src/main.js"></script>
     </div>
 
     <div id="gui_container"></div>

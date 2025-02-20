@@ -3,16 +3,14 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
 import vertexShader from "./shaders/earthVertex.glsl";
 import fragmentShader from "./shaders/earthFragment.glsl";
-import atmosphereVertexShader from "./shaders/atmosphereVertex.glsl";
-import atmosphereFragmentShader from "./shaders/atmosphereFragment.glsl";
 import * as d3 from "d3";
 import {
   COE2IJK,
   computeGroundTrack,
-  OrbitalElements,
+  OrbitalElements, 
   propagate,
   rad2deg,
-} from "./Orbit";
+} from "./OrbitMath";
 import Stats from "stats.js";
 import * as constants from "./Constants";
 import { Line2 } from "three/examples/jsm/lines/Line2.js";
@@ -20,6 +18,7 @@ import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
 import { LineGeometry } from "three/examples/jsm/lines/LineGeometry.js";
 import { createLevaControls } from "./LevaWrapper";
 import { folder } from "leva";
+import { LoadingScreen } from "./AssetLoader";
 
 var stats = new Stats();
 stats.showPanel(1); // 0: fps, 1: ms, 2: mb, 3+: custom
@@ -53,6 +52,40 @@ const viewStates = {
 
 // Initially the view will start by looking at the globe
 var viewState = viewStates.GLOBE;
+
+// Initialize uniforms with null/empty textures first
+var uniforms = {
+  dayTexture: {
+    value: new THREE.Texture(), // Initialize with empty texture
+  },
+  nightTexture: {
+    value: new THREE.Texture(),
+  },
+  cloudTexture: {
+    value: new THREE.Texture(),
+  },
+  mapTexture: {
+    value: new THREE.Texture(),
+  },
+  opacity: {
+    value: 1.0,
+  },
+  sunDirection: {
+    value: new THREE.Vector3(1.0, -0.2, 0.0),
+  },
+  atmosphereColor: {
+    value: new THREE.Vector3(0.3, 0.6, 0.8),
+  },
+  flatten: {
+    value: 0.0,
+  },
+  EARTH_SCALED_RADIUS: {
+    value: EARTH_SCALED_RADIUS,
+  },
+  time: {
+    value: 0.0,
+  },
+};
 
 function transform() {
 
@@ -88,6 +121,10 @@ const renderer = new THREE.WebGLRenderer({
 });
 renderer.setPixelRatio(window.devicePixelRatio * 2);
 renderer.setSize(window.innerWidth, window.innerHeight);
+
+const satellite = new THREE.Group();
+satellite.scale.set(0.05, 0.05, 0.05);
+satellite.position.x = 10;
 
 const fov = 75;
 const aspect = window.innerWidth / window.innerHeight;
@@ -136,10 +173,6 @@ function getMaxYOffset(zDistance) {
 // Minimum z distance where entire height becomes visible
 const maxZForFullHeight = mapHeight / (2 * Math.tan(fovy/2)) + EARTH_SCALED_RADIUS;
 
-console.log("Max z for full height", maxZForFullHeight);
-
-
-
 function limitOrthoMouse() {
   const x_limit = getMaxXOffset(mouse.scroll) + 0.1;
   const y_limit = getMaxYOffset(mouse.scroll) + 0.1;
@@ -147,41 +180,101 @@ function limitOrthoMouse() {
   mouse.y = Math.max(Math.min(mouse.y, y_limit), -y_limit);
 }
 
-var uniforms = {
-  dayTexture: {
-    value: new THREE.TextureLoader().load(
-      "./img/world.topo.bathy.200412.3x5400x2700.avif" //200412.3x1920x960.jpg"
-    ),
-  },
-  nightTexture: {
-    value: new THREE.TextureLoader().load(
-      "./img/earth_vir_2016_lrg.avif" //world.topo.bathy.night.3x1920x960.jpg"
-    ),
-  },
-  cloudTexture: {
-    value: new THREE.TextureLoader().load(
-      "./img/clouds_8k.png" // "./img/cloud_combined_2048.jpg" //earth_clouds_2048.jpg"
-    ),
-  },
-  mapTexture: {
-    value: new THREE.Texture(),
-  },
-  opacity: {
-    value: 1.0,
-  },
-  sunDirection: {
-    value: new THREE.Vector3(1.0, -0.2, 0.0),
-  },
-  atmosphereColor: {
-    value: new THREE.Vector3(0.3, 0.6, 0.8),
-  },
-  flatten: {
-    value: 0.0,
-  },
-  EARTH_SCALED_RADIUS: {
-    value: EARTH_SCALED_RADIUS,
-  },
-};
+
+// Initialize your loaders and loading screen
+const loadingScreen = new LoadingScreen();
+const textureLoader = new THREE.TextureLoader();
+const gltfLoader = new GLTFLoader();
+
+// Function to load a texture with progress tracking
+function loadTexture(url, description) {
+  loadingScreen.setLoadingText(`${description}...`);
+  return new Promise((resolve, reject) => {
+    textureLoader.load(
+      url,
+      (texture) => {
+        loadingScreen.updateProgress();
+        resolve(texture);
+      },
+      (xhr) => {
+        // Additional progress tracking if needed
+        // const percentComplete = (xhr.loaded / xhr.total) * 100;
+      },
+      (error) => {
+        console.error(`Error loading ${description}:`, error);
+        reject(error);
+      }
+    );
+  });
+}
+
+// Main initialization function
+async function initializeScene() {
+  try {
+    // Load all textures in parallel
+    const [dayTexture, nightTexture, cloudTexture] = await Promise.all([
+      loadTexture('./img/world.200412.3x10800x5400.avif', 'Moving mountains'), // ./img/world.topo.bathy.200412.3x5400x2700.avif
+      loadTexture('./img/earth_vir_2016_lrg.avif', 'Aligning stars'),
+      loadTexture('./img/cloud_combined_8192.png', 'Seeding clouds'),
+    ]);
+
+    // Load the model
+    loadingScreen.setLoadingText('Launching satellite...');
+    const gltfModel = await new Promise((resolve, reject) => {
+      gltfLoader.load(
+        'model/Hubble.glb',
+        (gltf) => {
+          loadingScreen.updateProgress();
+          resolve(gltf);
+        },
+        (xhr) => {
+          // Additional progress tracking if needed
+          const percentComplete = (xhr.loaded / xhr.total) * 100;
+          if (percentComplete < 25) {
+            loadingScreen.setLoadingText('Launching satellite... 3');
+          }
+          else if(percentComplete < 50) {
+            loadingScreen.setLoadingText('Launching satellite... 3, 2');
+          }
+          else if(percentComplete < 75) {
+            loadingScreen.setLoadingText('Launching satellite... 3, 2, 1');
+          }
+          else if(percentComplete < 100) {
+            loadingScreen.setLoadingText('Liftoff. All systems nominal.');
+          }
+        },
+        (error) => {
+          console.error('Error loading model:', error);
+          reject(error);
+        }
+      );
+    });
+
+    // Update your uniforms with the loaded textures
+    uniforms.dayTexture.value = dayTexture;
+    uniforms.nightTexture.value = nightTexture;
+    uniforms.cloudTexture.value = cloudTexture;
+    // uniforms.mapTexture.value = mapTexture;
+
+    // Add the model to your scene
+    satellite.add(gltfModel.scene);
+
+    // Start your animation/render loop here
+    // animate();
+  } catch (error) {
+    console.error('Error loading assets:', error);
+    loadingScreen.setLoadingText('Error loading assets. Please refresh the page.');
+  }
+}
+
+// Set up completion callback
+loadingScreen.onComplete(() => {
+  console.log('All assets loaded successfully!');
+  // Any additional initialization code
+});
+
+// Start the loading process
+initializeScene();
 
 // Append canvas and save reference
 const groundPlotCanvas = d3
@@ -306,17 +399,6 @@ const earth = new THREE.Mesh(
 );
 earth.material.transparent = true;
 
-const atmosphere = new THREE.Mesh(
-  new THREE.SphereGeometry(6.4581 * 0.992, 50, 50), // 5.06 //4
-  new THREE.ShaderMaterial({
-    vertexShader: atmosphereVertexShader,
-    fragmentShader: atmosphereFragmentShader,
-    uniforms,
-    blending: THREE.AdditiveBlending,
-    side: THREE.BackSide,
-  })
-);
-
 // Create a curve to interpolate points from orbit
 var curve = new THREE.CatmullRomCurve3();
 curve.closed = true;
@@ -335,7 +417,7 @@ orbitGeometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
 
 const orbitMaterial = new THREE.LineBasicMaterial({
   color:  initialColor,
-  linewidth: 20,
+  linewidth: 1.0,
   transparent: true,
   opacity: 1.0,
 });
@@ -384,11 +466,11 @@ earth.renderOrder = 0; // Lower number renders first
 
 const group = new THREE.Group();
 group.add(earth);
-group.add(atmosphere);
 group.add(orbitLine);
 group.add(nadirLine);
 group.add(stars);
 group.add(orbitPlane);
+group.add(satellite);
 
 scene.add(group);
 
@@ -397,28 +479,9 @@ const intensity = 1.5;
 const ambientLight = new THREE.AmbientLight(color, intensity);
 scene.add(ambientLight);
 
-const light = new THREE.PointLight(color, intensity);
-light.position.set(0, 0, 50);
-scene.add(light);
-
-const satellite = new THREE.Group();
-group.add(satellite);
-satellite.scale.set(0.05, 0.05, 0.05);
-satellite.position.x = 10;
-const gltfLoader = new GLTFLoader();
-gltfLoader.load(
-  "model/Hubble.glb",
-  function (gltf) {
-    satellite.add(gltf.scene);
-    console.log(satellite);
-  },
-  (xhr) => {
-    console.log((xhr.loaded / xhr.total) * 100 + "% loaded");
-  },
-  (error) => {
-    console.log(error);
-  }
-);
+// const light = new THREE.PointLight(color, intensity);
+// light.position.set(0, 0, 50);
+// scene.add(light);
 
 renderer.render(scene, camera);
 
@@ -555,6 +618,7 @@ const {cleanup, set} = createLevaControls(
 
 function updateSimulationTime() {
   simulationTime += deltaTime;
+  uniforms.time.value = simulationTime;
 }
 
 const initialTime = new Date();
@@ -662,7 +726,6 @@ function render(time) {
       orbitPlane.visible = false;
       nadirLine.visible = false;
       stars.visible = false;
-      atmosphere.visible = false;
       ambientLight.visible = false;
       light.visible = false;
 
@@ -673,7 +736,6 @@ function render(time) {
       orbitPlane.visible = true;   
       nadirLine.visible = true;
       stars.visible = true;
-      atmosphere.visible = true;
       ambientLight.visible = true;
       light.visible = true;
       gsap.to(camera.position, {
@@ -821,10 +883,10 @@ addEventListener("wheel", (event) => {
   }
 });
 
-function animate() {
-  requestAnimationFrame(animate);
-  renderer.render(scene, camera);
-  stats.update();
-}
+// function animate() {
+//   requestAnimationFrame(animate);
+//   renderer.render(scene, camera);
+//   stats.update();
+// }
 
-animate();
+// animate();

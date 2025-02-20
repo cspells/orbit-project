@@ -6,9 +6,14 @@ uniform float opacity;
 uniform vec3 sunDirection;
 uniform vec3 atmosphereColor; 
 uniform float flatten; 
+uniform float time; 
 varying vec2 vertexUV;
 varying vec3 vectorNormal;
 
+const float cloudCover = 0.5; // Controls amount of clouds (0-1)
+const float cloudSharpness = 0.8; // Controls edge sharpness of clouds
+
+const float PI = 3.141592653589793;
 const float gridSize = 10.0;
 
 float getGridLine(float coordinate) {
@@ -33,11 +38,15 @@ vec3 blurSample(sampler2D tex, vec2 uv, float blur) {
             float weight = 1.0 - length(offset) * 0.5;
             if(weight <= 0.0) continue;
             result += texture2D(tex, uv + offset).rgb * weight;
-            total += weight;
+            total += weight; 
         }
     }
     
     return result / total;
+}
+
+float rand(vec2 co) {
+    return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453);
 }
 
 void main() {
@@ -55,23 +64,23 @@ void main() {
     vec3 nightSample = texture2D(nightTexture, vertexUV).xyz;
     vec3 daySample = texture2D(dayTexture, vertexUV).xyz;
     vec3 mapSample = texture2D(mapTexture, vertexUV).xyz;
-    vec3 cloudSample = texture2D(cloudTexture, vertexUV).xyz;
-
+    // Calculate cloud UVs with rotation
+    vec2 cloudUV = vertexUV;
+    // Offset the U coordinate based on time
+    cloudUV.x = fract(cloudUV.x + 0.0000015*time); // fract keeps it in 0-1 range
+    vec3 cloudSample = blurSample(cloudTexture, cloudUV, 0.5); // texture2D(cloudTexture, cloudUV).xyz;
+    
+     
     // Add mixing for night time
     float angleToSun = dot(vectorNormal, sunDirection);
     angleToSun -= 0.25;
     float sunsetAngleToSun = clamp(5.0*angleToSun, -1.0, 1.0);
-    float mixAngleToSun = clamp(15.0*angleToSun, -1.0, 1.0);
-    float mixAmount = (mixAngleToSun)*0.5 + 0.5; 
-    // mixAmount = pow(mixAmount, 2.0);
-    // mixAmount *= 0.85;
-    // mixAmount += 0.15;
-    mixAmount = clamp(mixAmount, 0.0, 1.0);
+    float mixAmount = smoothstep(-.1, .1, angleToSun);  
 
     // Add shading for atmosphere  1.08  
-    float intensity = 1.08 - dot(
+    float intensity = 1.4 - dot(
         vectorNormal, vec3(0.0, 0.0, 1.0));
-    vec3 atmosphere = (1.0 - flatten) * atmosphereColor * pow(intensity, 0.5); //0.58
+    vec3 atmosphere = (1.0 - 0.6*flatten) * atmosphereColor * smoothstep(0.2, 0.93, intensity);   //pow(intensity, 2.0); //0.58
     daySample += atmosphere;
     
     vec3 finalColor = mix(nightSample, daySample, mixAmount);
@@ -81,22 +90,31 @@ void main() {
     float sunset = 1.0 / (1.0 + exp(-k*(sunsetAngleToSun - x0 + .2)));
     float sunset2 = 1.0 / (1.0 + exp(k*(sunsetAngleToSun + x0 - .2)));
     vec3 sunsetColor =  vec3(0.5, 0.3, 0.1) * pow(sunset * sunset2 , 2.0);
+    // float sunset = smoothstep(-0.5,.05, -angleToSun); 
+    // float sunset2 = smoothstep(-1.25,0.9, angleToSun); 
+    // vec3 sunsetColor =  vec3(0.5, 0.3, 0.1) * pow(sunset * sunset2 , 2.0);
 
     float darken = 0.8; //mixAmount*0.9 + 0.1;
     vec3 temp = finalColor*darken + 0.85*sunsetColor;
+
+    float cloudOpacity = 1.0 * ( 0.5 + mixAmount*0.5);
+    float cloudAlpha = (cloudSample.r + cloudSample.g + cloudSample.b) / 3.0;
+    cloudAlpha = smoothstep(0.2, 0.8, cloudAlpha);  // Only show moderately bright to bright areas
+    // // cloudAlpha = pow(cloudAlpha, 2.0);  // Square it for sharper contrast
+    // // Add clouds
+    temp = mix(temp, clamp(mixAmount, 0.2, 1.0)*cloudSample.rgb, cloudAlpha);
 
     vec3 colorWithSVG = temp + mapSample;
 
     // Apply grid lines
     colorWithSVG = mix(colorWithSVG, vec3(1.0), gridStrength);
 
-    float cloudOpacity = 1.0 * ( 0.5 + mixAmount*0.5);
-    float cloudAlpha = (cloudSample.r + cloudSample.g + cloudSample.b) / 3.0;
-    // cloudAlpha = smoothstep(0.2, 0.8, cloudAlpha);  // Only show moderately bright to bright areas
-    // cloudAlpha = pow(cloudAlpha, 2.0);  // Square it for sharper contrast
-    // Add clouds
-    colorWithSVG = mix(colorWithSVG, clamp(mixAmount, 0.2, 1.0)*cloudSample.rgb, cloudAlpha);
+    // Dithering smooths out banding artifacts
+    float dither = rand(gl_FragCoord.xy) * 0.015625; // 1.0/64.0
+    colorWithSVG.rgb += dither;
 
+
+    
     gl_FragColor = vec4(colorWithSVG, opacity);
     
 }

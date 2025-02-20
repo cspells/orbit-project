@@ -100,7 +100,7 @@ html, body {
 .slider {
   -webkit-appearance: none;  /* Override default CSS styles */
   appearance: none;
-  width: 100%; /* Full-width */
+  width: 60%; /* Full-width */
   height: 5px; /* Specified height */
   background: #df9d0f; /* Grey background */
   outline: none; /* Remove outline */
@@ -129,4 +129,19 @@ html, body {
   height: 25px; /* Slider handle height */
   background: #04AA6D; /* Green background */
   cursor: pointer; /* Cursor on hover */
+}
+
+
+.grid-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  grid-auto-rows: minmax(100px, auto);
+  gap: 20px;
+  padding: 20px;
+}
+
+/* Fixed number of rows and columns */
+.grid-4 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 2fr; /* 3 columns with middle being twice as wide */
 }
